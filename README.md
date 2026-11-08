@@ -40,23 +40,17 @@ Derived from our six user stories:
 
 ## Data sources
 
+Scope: **10 European countries** covered by Adzuna — AT, BE, CH, DE, ES, FR, GB, IT, NL, PL.
+
 | Source | What we use | Table |
 |---|---|---|
-| [Adzuna](https://developer.adzuna.com/) | live IT ads for AT, BE, CH, DE, ES, FR, GB, IT, NL, PL; monthly mean IT salary (see `docs/adzuna_coverage_report_it.pdf`) | `job_postings`, `statistical_employment_data` |
-| [EURES](https://eures.europa.eu/) | job postings across ~30 European countries | `job_postings` |
-| [LinkedIn Job Postings 2023-24 (Kaggle)](https://www.kaggle.com/datasets/arshkon/linkedin-job-postings) | historical ads with salaries (US only, filter by `industry_name`) | `job_postings` |
-| [Techmap](https://jobdatafeeds.com/job-api), [JobsPipe](https://jobspipe.dev/jobs-api), [CleanJobData](https://cleanjobdata.com/) | job postings (free tiers) | `job_postings` |
-| [Eurostat](https://ec.europa.eu/eurostat/web/main/data/database) | ICT specialists in employment, employment by ISCO occupation (25, 35), job vacancy rate NACE J vs. total, 2019-2025 | `statistical_employment_data` |
-| [ONS](https://www.ons.gov.uk/), [Destatis](https://www.destatis.de/), [INSEE](https://www.insee.fr/) | national employment and wage statistics | `statistical_employment_data` |
-| [BLS](https://www.bls.gov/developers/), [Census / ACS](https://data.census.gov/) | US employment, occupation wages (comparison) | `statistical_employment_data` |
-| [e-Stat](https://www.e-stat.go.jp/en), [data.gov.sg](https://data.gov.sg/), [KOSIS](https://kosis.kr/eng/), [data.gov.in](https://data.gov.in/) | Asian labour-force data (comparison) | `statistical_employment_data` |
-| [World Bank](https://data.worldbank.org/), [ILOSTAT](https://ilostat.ilo.org/data/) | macro and labour-force indicators | `statistical_employment_data` |
-| [Levels.fyi](https://www.levels.fyi/), [Second Talent](https://www.secondtalent.com/asia-tech-salary-index/) | tech compensation benchmarks | `statistical_employment_data` |
-| [WorkforceSignal](https://workforcesignal.com/layoff-tracker), [Crunchbase](https://news.crunchbase.com/startups/tech-layoffs/), [AILayoffs.live](https://ailayoffs.live/), [layoffhedge](https://layoffhedge.com/data/) | tech and AI-related layoffs | `statistical_employment_data` |
-| [Epoch AI](https://epoch.ai/data/ai-models) | 3,600+ notable AI models (release date, compute, parameters, organization) | `ai_metrics` |
-| [Hugging Face datasets](https://huggingface.co/datasets) | LLM benchmark results | `ai_metrics` |
-| [Stack Overflow Survey](https://survey.stackoverflow.co/) | developer AI use, roles, salaries by country | `ai_metrics`, `statistical_employment_data` |
-| [GitHub Octoverse](https://github.blog/news-insights/octoverse/) | developer and AI ecosystem indicators | `ai_metrics` |
+| [Adzuna](https://developer.adzuna.com/) | live IT ads for all 10 countries; monthly mean IT salary per country | `job_postings`, `adzuna_salary_history` |
+| [EURES](https://eures.europa.eu/) | job postings across the 10 countries | `job_postings` |
+| [Eurostat](https://ec.europa.eu/eurostat/web/main/data/database) | ICT specialists share & headcount (ISOC_SKS_ITSPT), ISCO-08 groups 25 & 35 (LFSA_EGAI2D), job vacancy rate NACE J vs. total (JVS_Q_NACE2), 2004-2025 | `eurostat_ict_stats` |
+| [Epoch AI](https://epoch.ai/data/ai-models) | notable_models: 3,600+ models (compute, parameters, frontier/foundation flags); capability_index: benchmark scores per model | `ai_models`, `ai_benchmarks` |
+| [Hugging Face datasets](https://huggingface.co/datasets) | LLM benchmark results | `ai_benchmarks` |
+| [Stack Overflow Survey](https://survey.stackoverflow.co/) | developer AI use, roles, salaries by country | CSV / notebooks |
+| [GitHub Octoverse](https://github.blog/news-insights/octoverse/) | developer and AI ecosystem indicators | CSV / notebooks |
 
 ## Data model
 
@@ -64,12 +58,12 @@ Defined in `jobmarket/models.py`. Each table stores the complete source record i
 
 | Table | One row per | Main columns |
 |---|---|---|
-| `countries` | European country (47, seeded on API start) | `iso2`, `iso3`, `eurostat_code` (EL, UK), `name`, `eu_member`, `currency` |
-| `job_postings` | job ad, unique per `source` + `external_id` | title, description, company, category, location, coordinates, contract, salary min/max/currency/period, `posted_at`, `first_seen_at` / `last_seen_at` |
-| `statistical_employment_data` | published number (long format) | `source`, `dataset`, `country_id`, `period`, `frequency` (A/Q/M/D), `metric`, `category` (ISCO/NACE code, role, company), `value`, `unit` |
-| `ai_metrics` | AI indicator | `source`, `dataset`, `subject` (model, benchmark, population), `organization`, `country_id`, `reference_date`, `metric`, `value`, `unit` |
-
-`country_id` is a foreign key to `countries` and may be empty (non-European or global data).
+| `countries` | one of the 10 Adzuna countries | `iso2`, `eurostat_code` (EL/UK differ), `name`, `eu_member`, `currency` |
+| `job_postings` | job ad, unique per `source` + `external_id` | title, description, company, category, location, coordinates, contract, salary min/max/currency/period, `salary_min_eur`/`salary_max_eur`, `posted_at`, `first_seen_at`/`last_seen_at` |
+| `eurostat_ict_stats` | (country, year), annual | `ict_share_pct`, `ict_ths`, `oc25_ths`, `oc35_ths`, `vac_j`, `vac_j_nq`, `vac_total`, `vac_total_nq` |
+| `adzuna_salary_history` | (country, month), unique per month | `mean_salary`, `currency`, `mean_salary_eur`, `snapshot_date` |
+| `ai_models` | notable AI model, unique per (name, organization) | `domain`, `reference_date`, `is_foundation`, `is_frontier`, `open_weights`, `parameters`, `training_compute_flop`, `training_dataset_size` |
+| `ai_benchmarks` | (model, benchmark) score pair | `model_version`, `benchmark`, `benchmark_release_date`, `performance`, `source_citation` |
 
 ## Tech stack
 
